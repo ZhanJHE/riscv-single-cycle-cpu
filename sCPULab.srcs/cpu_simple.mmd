@@ -1,0 +1,49 @@
+```mermaid
+graph LR
+    subgraph "RISC-V 单周期CPU数据通路"
+        direction TB
+        
+        CLK[(CLK)] --> PC
+        RST[(RST)] --> PC
+        
+        subgraph "取指阶段"
+            PC[("PC\n程序计数器")] --> IMEM[(Instruction Memory)]
+            IMEM --> ID[("ID\n指令译码器")]
+        end
+        
+        subgraph "译码与控制"
+            ID --> CU[("CU\n控制单元")]
+            ID --> RF[("Register File\n寄存器文件")]
+        end
+        
+        subgraph "执行阶段"
+            RF --> ALU[("ALU\n算术逻辑单元")]
+            CU --> ALU
+        end
+        
+        subgraph "访存阶段"
+            ALU --> DMEM[(Data Memory)]
+            RF --> DMEM
+            CU --> DMEM
+        end
+        
+        subgraph "写回阶段"
+            DMEM --> RF
+            ALU --> RF
+            CU --> RF
+        end
+        
+        PC --> ALU
+        ALU --> PC
+    end
+    
+    style PC fill:#e1f5fe,stroke:#64b5f6
+    style IMEM fill:#f3e5f5,stroke:#9c27b0
+    style ID fill:#e1f5fe,stroke:#64b5f6
+    style CU fill:#fff3e0,stroke:#ff9800
+    style RF fill:#f3e5f5,stroke:#9c27b0
+    style ALU fill:#e8f5e8,stroke:#4caf50
+    style DMEM fill:#ffebee,stroke:#f44336
+    
+    linkStyle default stroke:#333,stroke-width:2px,fill:none
+```

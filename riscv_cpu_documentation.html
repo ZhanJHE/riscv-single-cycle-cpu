@@ -1,0 +1,1251 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RISC-V单周期CPU实验项目文档</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: "Microsoft YaHei", Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background-color: #f5f5f5;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 40px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        h1 {
+            color: #2c3e50;
+            border-bottom: 3px solid #3498db;
+            padding-bottom: 15px;
+            margin-bottom: 30px;
+            font-size: 32px;
+        }
+
+        h2 {
+            color: #34495e;
+            border-left: 4px solid #3498db;
+            padding-left: 15px;
+            margin-top: 40px;
+            margin-bottom: 20px;
+            font-size: 24px;
+            background-color: #ecf0f1;
+            padding-top: 10px;
+            padding-bottom: 10px;
+        }
+
+        h3 {
+            color: #2c3e50;
+            margin-top: 25px;
+            margin-bottom: 15px;
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        p {
+            margin-bottom: 15px;
+            text-align: justify;
+        }
+
+        ul {
+            margin-left: 30px;
+            margin-bottom: 15px;
+        }
+
+        li {
+            margin-bottom: 8px;
+        }
+
+        pre {
+            background-color: #2c3e50;
+            color: #ecf0f1;
+            padding: 20px;
+            border-radius: 5px;
+            overflow-x: auto;
+            margin-bottom: 20px;
+            font-size: 13px;
+            line-height: 1.4;
+        }
+
+        code {
+            font-family: "Consolas", "Monaco", monospace;
+        }
+
+        .inline-code {
+            background-color: #ecf0f1;
+            padding: 2px 6px;
+            border-radius: 3px;
+            color: #e74c3c;
+            font-family: "Consolas", "Monaco", monospace;
+        }
+
+        .signal-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
+
+        .signal-table th {
+            background-color: #3498db;
+            color: white;
+            padding: 12px;
+            text-align: left;
+            font-weight: 600;
+        }
+
+        .signal-table td {
+            padding: 10px;
+            border-bottom: 1px solid #ddd;
+        }
+
+        .signal-table tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+
+        .signal-table tr:hover {
+            background-color: #f0f0f0;
+        }
+
+        .signal-name {
+            font-family: "Consolas", "Monaco", monospace;
+            color: #e74c3c;
+            font-weight: 600;
+        }
+
+        .module-description {
+            background-color: #ecf0f1;
+            padding: 15px;
+            border-left: 4px solid #3498db;
+            margin-bottom: 20px;
+            border-radius: 3px;
+        }
+
+        .section-divider {
+            border-top: 2px solid #bdc3c7;
+            margin: 40px 0;
+        }
+
+        .note {
+            background-color: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 15px;
+            margin-bottom: 15px;
+            border-radius: 3px;
+        }
+
+        .note strong {
+            color: #856404;
+        }
+
+        .toc {
+            background-color: #e8f4f8;
+            padding: 20px;
+            border-radius: 5px;
+            margin-bottom: 30px;
+            border-left: 4px solid #3498db;
+        }
+
+        .toc h3 {
+            margin-top: 0;
+            color: #2c3e50;
+            margin-bottom: 15px;
+        }
+
+        .toc ul {
+            list-style-type: none;
+            margin-left: 0;
+        }
+
+        .toc li {
+            margin-bottom: 10px;
+        }
+
+        .toc a {
+            color: #3498db;
+            text-decoration: none;
+            font-weight: 500;
+        }
+
+        .toc a:hover {
+            text-decoration: underline;
+            color: #2980b9;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>RISC-V单周期CPU实验项目文档</h1>
+
+        <div class="toc">
+            <h3>目录</h3>
+            <ul>
+                <li><a href="#overview">项目概述</a></li>
+                <li><a href="#cpu">1. CPU.v - CPU顶层模块</a></li>
+                <li><a href="#top">2. top.v - 测试顶层模块</a></li>
+                <li><a href="#pc">3. pc.v - 程序计数器</a></li>
+                <li><a href="#rom">4. rom.v - 指令存储器</a></li>
+                <li><a href="#id">5. ID.v - 指令译码器</a></li>
+                <li><a href="#cu">6. ControlUnit2.v - 控制单元</a></li>
+                <li><a href="#alu">7. alu.v - 算术逻辑单元</a></li>
+                <li><a href="#rf">8. RegFiles.v - 寄存器堆</a></li>
+                <li><a href="#ram">9. ram.v - 数据存储器</a></li>
+            </ul>
+        </div>
+
+        <div class="section-divider" id="overview"></div>
+
+        <h2 id="overview">项目概述</h2>
+        <div class="module-description">
+            <p>本RISC-V单周期CPU项目实现了一个基础的32位RISC-V处理器，采用单周期执行方式，每个时钟周期完成一条指令的执行。项目包含完整的指令流水线前段，包括取指、译码、执行和访存阶段。</p>
+            <p>CPU采用模块化设计，将各个功能单元独立实现，便于理解各模块的功能和相互之间的信号连接。整个处理器支持基本的RISC-V指令集，包括算术运算、逻辑运算、分支跳转等指令类型。</p>
+        </div>
+
+        <div class="section-divider" id="cpu"></div>
+
+        <h2 id="cpu">1. CPU.v - CPU顶层模块</h2>
+
+        <div class="module-description">
+            <p>CPU.v是整个处理器的顶层模块，负责连接和协调各个子模块，实现完整的数据通路和控制通路。该模块实例化了程序计数器、指令译码器、控制单元、寄存器堆和算术逻辑单元等核心组件。</p>
+        </div>
+
+        <h3>端口定义</h3>
+        <table class="signal-table">
+            <tr>
+                <th>信号名称</th>
+                <th>方向</th>
+                <th>位宽</th>
+                <th>功能描述</th>
+            </tr>
+            <tr>
+                <td class="signal-name">clk</td>
+                <td>input</td>
+                <td>1</td>
+                <td>系统时钟信号</td>
+            </tr>
+            <tr>
+                <td class="signal-name">rst</td>
+                <td>input</td>
+                <td>1</td>
+                <td>系统复位信号，高电平有效</td>
+            </tr>
+            <tr>
+                <td class="signal-name">pcAddr</td>
+                <td>output</td>
+                <td>32</td>
+                <td>当前程序计数器值，用于从ROM取指令</td>
+            </tr>
+            <tr>
+                <td class="signal-name">insData</td>
+                <td>input</td>
+                <td>32</td>
+                <td>从ROM获取的32位指令数据</td>
+            </tr>
+        </table>
+
+        <h3>内部信号定义</h3>
+        <p>CPU模块定义了多个内部连接信号，用于连接各子模块：</p>
+        <ul>
+            <li><span class="inline-code">nextaddr</span> - 下一条指令的地址</li>
+            <li><span class="inline-code">curraddr</span> - 当前指令地址</li>
+            <li><span class="inline-code">addr4</span> - 当前地址加4</li>
+            <li><span class="inline-code">rdata1, rdata2</span> - 寄存器堆读出数据</li>
+            <li><span class="inline-code">rwdata</span> - 寄存器堆写入数据</li>
+            <li><span class="inline-code">a, b</span> - ALU输入操作数</li>
+            <li><span class="inline-code">f</span> - ALU运算结果</li>
+            <li><span class="inline-code">rs1, rs2, rd</span> - 寄存器编号</li>
+            <li><span class="inline-code">opcode</span> - 操作码（7位）</li>
+            <li><span class="inline-code">func</span> - 功能码（3位）</li>
+            <li><span class="inline-code">dis</span> - 功能7位码</li>
+            <li><span class="inline-code">con</span> - 条件判断结果</li>
+            <li><span class="inline-code">rwe, mwe</span> - 寄存器和存储器写使能</li>
+            <li><span class="inline-code">isimm, isfpc, isfm, ispc4</span> - 各种数据选择控制信号</li>
+            <li><span class="inline-code">imm12, imm20</span> - 立即数</li>
+            <li><span class="inline-code">imm12_exp, imm20_exp</span> - 符号扩展后的立即数</li>
+            <li><span class="inline-code">addr_branch, addr_jal, addr_jalr</span> - 各种跳转地址</li>
+            <li><span class="inline-code">pcsource</span> - PC源选择信号</li>
+            <li><span class="inline-code">aluop</span> - ALU操作码</li>
+        </ul>
+
+        <h3>模块实例化</h3>
+        <p>CPU.v中实例化了以下子模块：</p>
+        <pre><code>// 实例化PC模块
+pc mypc(
+    .rst(rst),
+    .clk(clk),
+    .nextaddr(nextaddr),
+    .addr(curraddr)
+);
+
+// 实例化ID模块
+ID myid(
+    .ins(insData),
+    .rs1(rs1),
+    .rs2(rs2),
+    .rd(rd),
+    .opcode(opcode),
+    .funct3(func),
+    .funct7(dis),
+    .imm12(imm12),
+    .imm20(imm20)
+);
+
+// 实例化控制单元
+ControlUnit mycu(
+    .opcode(opcode),
+    .funct3(func),
+    .funct7(dis),
+    .condition(con),
+    .pcSourceCode(pcsource),
+    .regWe(rwe),
+    .memWe(mwe),
+    .aluOpCode(aluop),
+    .bIsImm(isimm),
+    .bIs20bImm(imm20),
+    .regDataIsFromMem(isfm),
+    .regDataIsFromPC4(ispc4)
+);
+
+// 实例化寄存器堆
+RegFiles myrf(
+    .raddr1(rs1),
+    .rdata1(rdata1),
+    .raddr2(rs2),
+    .rdata2(rdata2),
+    .waddr(rd),
+    .wdata(rwdata),
+    .we(rwe),
+    .clk(clk)
+);
+
+// 实例化ALU
+alu myalu(
+    .dataA(a),
+    .dataB(b),
+    .opcode(aluop),
+    .result(f),
+    .con(con)
+);</code></pre>
+
+        <h3>关键逻辑</h3>
+        <ul>
+            <li><strong>PC地址输出</strong>：将当前PC值输出到pcAddr端口，用于从ROM取指令</li>
+            <li><strong>立即数符号扩展</strong>：将12位立即数符号扩展到32位
+                <pre><code>assign imm12_exp={{20{imm12[11]}},imm12};</code></pre>
+            </li>
+            <li><strong>ALU操作数准备</strong>：a操作数固定来自rdata1，b操作数来自符号扩展的立即数（当前实现）
+                <pre><code>assign a=rdata1;
+assign b=imm12_exp;</code></pre>
+            </li>
+            <li><strong>寄存器写回数据</strong>：当前实现直接使用ALU结果作为写回数据
+                <pre><code>assign rwdata=f;</code></pre>
+            </li>
+            <li><strong>PC更新</strong>：当前实现采用顺序执行，PC值加4
+                <pre><code>assign nextaddr=curraddr+4;</code></pre>
+            </li>
+        </ul>
+
+        <div class="note">
+            <strong>注意</strong>：当前CPU.v中的PC更新、ALU操作数b和数据通路存在TODO标记，需要根据完整指令集需求进行修改和完善，特别是对于分支跳转指令的处理。
+        </div>
+
+        <div class="section-divider" id="top"></div>
+
+        <h2 id="top">2. top.v - 测试顶层模块</h2>
+
+        <div class="module-description">
+            <p>top.v是整个系统的顶层测试模块，用于实例化CPU和指令存储器ROM，并提供时钟和复位信号。该模块是硬件验证的基础框架。</p>
+        </div>
+
+        <h3>端口定义</h3>
+        <table class="signal-table">
+            <tr>
+                <th>信号名称</th>
+                <th>方向</th>
+                <th>位宽</th>
+                <th>功能描述</th>
+            </tr>
+            <tr>
+                <td class="signal-name">clk</td>
+                <td>input</td>
+                <td>1</td>
+                <td>系统时钟输入</td>
+            </tr>
+            <tr>
+                <td class="signal-name">rst</td>
+                <td>input</td>
+                <td>1</td>
+                <td>系统复位输入</td>
+            </tr>
+        </table>
+
+        <h3>内部信号</h3>
+        <ul>
+            <li><span class="inline-code">addr</span> - 32位地址信号，连接CPU的pcAddr输出</li>
+            <li><span class="inline-code">insdata</span> - 32位指令数据，从ROM输出连接到CPU</li>
+        </ul>
+
+        <h3>模块实例化</h3>
+        <pre><code>CPU mycpu(
+    .clk(clk),
+    .rst(rst),
+    .pcAddr(addr),
+    .insData(insdata)
+);
+
+// 实例化ROM
+rom insrom(
+    .addr(addr[9:2]),
+    .data(insdata)
+);</code></pre>
+
+        <h3>关键特性</h3>
+        <ul>
+            <li><strong>地址对齐</strong>：ROM地址使用addr[9:2]，即字对齐地址（除以4），因为每条指令占4字节</li>
+            <li><strong>ROM大小</strong>：地址线使用8位，可寻址256个32位字（1KB指令存储空间）</li>
+            <li><strong>简单连接</strong>：top.v提供了CPU和ROM之间的简单连接，未包含数据存储器RAM的连接</li>
+        </ul>
+
+        <div class="note">
+            <strong>注意</strong>：top.v中存在TODO标记，可能需要添加数据存储器RAM的实例化和连接，以支持加载和存储指令的完整功能。
+        </div>
+
+        <div class="section-divider" id="pc"></div>
+
+        <h2 id="pc">3. pc.v - 程序计数器</h2>
+
+        <div class="module-description">
+            <p>pc.v实现了程序计数器功能，用于存储当前正在执行的指令地址。PC是处理器中最重要的状态寄存器之一，控制指令的执行流程。</p>
+        </div>
+
+        <h3>端口定义</h3>
+        <table class="signal-table">
+            <tr>
+                <th>信号名称</th>
+                <th>方向</th>
+                <th>位宽</th>
+                <th>功能描述</th>
+            </tr>
+            <tr>
+                <td class="signal-name">clk</td>
+                <td>input</td>
+                <td>1</td>
+                <td>时钟信号，上升沿触发PC更新</td>
+            </tr>
+            <tr>
+                <td class="signal-name">rst</td>
+                <td>input</td>
+                <td>1</td>
+                <td>复位信号，高电平有效</td>
+            </tr>
+            <tr>
+                <td class="signal-name">nextaddr</td>
+                <td>input</td>
+                <td>32</td>
+                <td>下一条指令的地址</td>
+            </tr>
+            <tr>
+                <td class="signal-name">addr</td>
+                <td>output</td>
+                <td>32</td>
+                <td>当前程序计数器值</td>
+            </tr>
+        </table>
+
+        <h3>功能实现</h3>
+        <pre><code>module pc(
+    input clk,
+    input rst,
+    input[31:0] nextaddr,
+    output reg [31:0] addr
+);
+    always @(posedge clk)
+    begin
+        if(rst==1'b1)
+            addr<=32'h00400000;
+        else
+            addr<=nextaddr;
+    end
+endmodule</code></pre>
+
+        <h3>关键特性</h3>
+        <ul>
+            <li><strong>同步时序逻辑</strong>：使用always @(posedge clk)实现同步更新</li>
+            <li><strong>复位功能</strong>：复位时将PC初始化为0x00400000，这是RISC-V的标准起始地址</li>
+            <li><strong>地址更新</strong>：非复位状态下，PC值更新为nextaddr的值</li>
+            <li><strong>寄存器输出</strong>：addr定义为output reg，在时钟沿更新时保持稳定</li>
+        </ul>
+
+        <h3>工作原理</h3>
+        <p>在每个时钟上升沿，PC模块检查复位信号。如果复位信号有效（高电平），PC被设置为初始地址0x00400000。否则，PC更新为输入的nextaddr值。这样实现了PC的顺序执行和跳转功能。</p>
+
+        <div class="section-divider" id="rom"></div>
+
+        <h2 id="rom">4. rom.v - 指令存储器</h2>
+
+        <div class="module-description">
+            <p>rom.v实现了指令存储器功能，用于存储程序指令。这是一个只读存储器，在初始化时从外部文件加载指令数据，运行时只能读取不能写入。</p>
+        </div>
+
+        <h3>端口定义</h3>
+        <table class="signal-table">
+            <tr>
+                <th>信号名称</th>
+                <th>方向</th>
+                <th>位宽</th>
+                <th>功能描述</th>
+            </tr>
+            <tr>
+                <td class="signal-name">addr</td>
+                <td>input</td>
+                <td>8</td>
+                <td>存储器地址输入（字地址）</td>
+            </tr>
+            <tr>
+                <td class="signal-name">data</td>
+                <td>output</td>
+                <td>32</td>
+                <td>从指定地址读取的32位指令数据</td>
+            </tr>
+        </table>
+
+        <h3>功能实现</h3>
+        <pre><code>module rom(
+    input [7:0] addr,
+    output [31:0] data
+);
+    reg[31:0] insData[0:63];
+    initial
+        $readmemh("../../../../insData.txt",insData);
+    assign data=insData[addr];
+endmodule</code></pre>
+
+        <h3>关键特性</h3>
+        <ul>
+            <li><strong>存储容量</strong>：定义了64个32位存储单元（256字节），实际使用0:63索引</li>
+            <li><strong>地址宽度</strong>：8位地址输入，可寻址256个位置，但只定义了64个有效单元</li>
+            <li><strong>文件初始化</strong>：使用$readmemh系统任务从insData.txt文件加载十六进制格式的指令数据</li>
+            <li><strong>异步读取</strong>：使用assign实现组合逻辑读取，地址变化时数据立即输出</li>
+            <li><strong>只读特性</strong>：没有写使能信号和数据输入端口，实现了ROM的只读特性</li>
+        </ul>
+
+        <h3>工作原理</h3>
+        <p>ROM模块在仿真初始化阶段从外部文件insData.txt读取指令数据到内部存储器数组。运行时，根据输入的addr值，直接输出对应地址的32位指令数据。由于使用assign语句，读取操作是异步的，不依赖于时钟信号。</p>
+
+        <h3>文件格式</h3>
+        <p>insData.txt文件应包含十六进制格式的指令数据，每行一个32位指令。例如：</p>
+        <pre><code>00000000
+00000001
+00000002
+00000003</code></pre>
+
+        <div class="note">
+            <strong>注意</strong>：ROM地址是字地址（每项对应4字节），与PC的地址需要右移2位对齐。top.v中通过addr[9:2]实现了这种对齐。
+        </div>
+
+        <div class="section-divider" id="id"></div>
+
+        <h2 id="id">5. ID.v - 指令译码器</h2>
+
+        <div class="module-description">
+            <p>ID.v实现了指令译码功能，用于解析32位RISC-V指令的各个字段，提取操作码、寄存器编号、立即数等信息。译码器是理解指令含义的关键模块。</p>
+        </div>
+
+        <h3>端口定义</h3>
+        <table class="signal-table">
+            <tr>
+                <th>信号名称</th>
+                <th>方向</th>
+                <th>位宽</th>
+                <th>功能描述</th>
+            </tr>
+            <tr>
+                <td class="signal-name">ins</td>
+                <td>input</td>
+                <td>32</td>
+                <td>输入的32位指令</td>
+            </tr>
+            <tr>
+                <td class="signal-name">rs1</td>
+                <td>output</td>
+                <td>5</td>
+                <td>源寄存器1编号</td>
+            </tr>
+            <tr>
+                <td class="signal-name">rs2</td>
+                <td>output</td>
+                <td>5</td>
+                <td>源寄存器2编号</td>
+            </tr>
+            <tr>
+                <td class="signal-name">rd</td>
+                <td>output</td>
+                <td>5</td>
+                <td>目标寄存器编号</td>
+            </tr>
+            <tr>
+                <td class="signal-name">opcode</td>
+                <td>output</td>
+                <td>7</td>
+                <td>操作码</td>
+            </tr>
+            <tr>
+                <td class="signal-name">funct3</td>
+                <td>output</td>
+                <td>3</td>
+                <td>功能码3</td>
+            </tr>
+            <tr>
+                <td class="signal-name">funct7</td>
+                <td>output</td>
+                <td>1</td>
+                <td>功能码7（仅第30位）</td>
+            </tr>
+            <tr>
+                <td class="signal-name">imm12</td>
+                <td>output</td>
+                <td>12</td>
+                <td>12位立即数</td>
+            </tr>
+            <tr>
+                <td class="signal-name">imm20</td>
+                <td>output</td>
+                <td>20</td>
+                <td>20位立即数</td>
+            </tr>
+        </table>
+
+        <h3>指令字段提取</h3>
+        <pre><code>// 标准RISC-V指令格式字段提取
+assign opcode=ins[6:0];
+assign rd=ins[11:7];
+assign funct3=ins[14:12];
+assign rs1=ins[19:15];
+assign rs2=ins[24:20];
+assign funct7=ins[30];</code></pre>
+
+        <h3>指令类型识别</h3>
+        <p>ID.v实现了基本的指令类型识别逻辑：</p>
+        <pre><code>wire I_type,S_type,B_type,J_type,U_type;
+// 0000011  I型指令（如LOAD、ALU立即数指令）
+assign I_type=~ins[6]&~ins[5]&~ins[3]&~ins[2]&ins[1]&ins[0];
+// 1100011  B型指令（分支指令）
+assign B_type=(&ins[6:5])&~(|ins[4:2])&(&ins[1:0]);
+// 0100011  S型指令（存储指令）
+assign S_type=~ins[6]&ins[5]&~(|ins[4:2])&(&ins[1:0]);</code></pre>
+
+        <h3>立即数提取</h3>
+        <p>根据指令类型提取不同格式的立即数：</p>
+        <pre><code>assign imm12={12{I_type}}&ins[31:20]|
+             {12{B_type}}&{ins[31],ins[7],ins[30:25],ins[11:8]}|
+             {12{S_type}}&{ins[31:25],ins[11:7]};</code></pre>
+
+        <h3>关键特性</h3>
+        <ul>
+            <li><strong>组合逻辑</strong>：所有译码操作使用assign语句实现，纯组合逻辑</li>
+            <li><strong>字段提取</strong>：按照RISC-V标准指令格式提取各个字段</li>
+            <li><strong>类型识别</strong>：通过opcode模式识别I型、B型、S型等指令类型</li>
+            <li><strong>立即数重组</strong>：根据不同指令类型重组立即数字段</li>
+        </ul>
+
+        <h3>RISC-V指令格式</h3>
+        <ul>
+            <li><strong>R型</strong>：rs1[19:15], rs2[24:20], funct3[14:12], rd[11:7], funct7[31:25]</li>
+            <li><strong>I型</strong>：imm[31:20], rs1[19:15], funct3[14:12], rd[11:7]</li>
+            <li><strong>S型</strong>：imm[31:25], rs2[24:20], rs1[19:15], funct3[14:12], imm[11:7]</li>
+            <li><strong>B型</strong>：imm[31|7], imm[30:25], rs2[24:20], rs1[19:15], funct3[14:12], imm[11:8]</li>
+        </ul>
+
+        <div class="note">
+            <strong>注意</strong>：ID.v中的imm20提取逻辑标记为TODO，需要完善U型和J型指令的20位立即数提取。当前实现主要关注I型、B型和S型指令。
+        </div>
+
+        <div class="section-divider" id="cu"></div>
+
+        <h2 id="cu">6. ControlUnit2.v - 控制单元</h2>
+
+        <div class="module-description">
+            <p>ControlUnit2.v实现了控制单元功能，根据译码器输出的操作码和功能码生成各个控制信号，控制数据通路的操作。控制单元是CPU的大脑，决定如何执行每条指令。</p>
+        </div>
+
+        <h3>端口定义</h3>
+        <table class="signal-table">
+            <tr>
+                <th>信号名称</th>
+                <th>方向</th>
+                <th>位宽</th>
+                <th>功能描述</th>
+            </tr>
+            <tr>
+                <td class="signal-name">opcode</td>
+                <td>input</td>
+                <td>7</td>
+                <td>指令操作码</td>
+            </tr>
+            <tr>
+                <td class="signal-name">funct3</td>
+                <td>input</td>
+                <td>3</td>
+                <td>功能码3</td>
+            </tr>
+            <tr>
+                <td class="signal-name">funct7</td>
+                <td>input</td>
+                <td>1</td>
+                <td>功能码7（第30位）</td>
+            </tr>
+            <tr>
+                <td class="signal-name">condition</td>
+                <td>input</td>
+                <td>1</td>
+                <td>分支条件判断结果（B型指令使用）</td>
+            </tr>
+            <tr>
+                <td class="signal-name">pcSourceCode</td>
+                <td>output</td>
+                <td>2</td>
+                <td>PC源选择：00=顺序，01=分支，10=JAL，11=JALR</td>
+            </tr>
+            <tr>
+                <td class="signal-name">regWe</td>
+                <td>output</td>
+                <td>1</td>
+                <td>寄存器写使能</td>
+            </tr>
+            <tr>
+                <td class="signal-name">memWe</td>
+                <td>output</td>
+                <td>1</td>
+                <td>存储器写使能</td>
+            </tr>
+            <tr>
+                <td class="signal-name">aluOpCode</td>
+                <td>output</td>
+                <td>4</td>
+                <td>ALU操作码</td>
+            </tr>
+            <tr>
+                <td class="signal-name">bIsImm</td>
+                <td>output</td>
+                <td>1</td>
+                <td>ALU的b操作数是否为立即数</td>
+            </tr>
+            <tr>
+                <td class="signal-name">bIs20bImm</td>
+                <td>output</td>
+                <td>1</td>
+                <td>是否为20位立即数指令</td>
+            </tr>
+            <tr>
+                <td class="signal-name">regDataIsFromMem</td>
+                <td>output</td>
+                <td>1</td>
+                <td>寄存器写回数据是否来自存储器</td>
+            </tr>
+            <tr>
+                <td class="signal-name">regDataIsFromPC4</td>
+                <td>output</td>
+                <td>1</td>
+                <td>寄存器写回数据是否来自PC+4</td>
+            </tr>
+        </table>
+
+        <h3>当前实现</h3>
+        <pre><code>module ControlUnit(
+    input [6:0] opcode,
+    input [2:0] funct3,
+    input funct7,
+    input condition,
+    output [1:0]pcSourceCode,
+    output regWe,
+    output memWe,
+    output [3:0] aluOpCode,
+    output bIsImm,
+    output bIs20bImm,
+    output regDataIsFromMem,
+    output regDataIsFromPC4
+);
+    wire i_type=~(|opcode[6:5])&opcode[4]&~(|opcode[3:2])&(&opcode[1:0]);
+
+    assign pcSourceCode=2'b00;
+    assign regWe=1'b1;
+    assign memWe=1'b0;
+    assign bIsImm=1'b1;
+    assign bIs20bImm=1'b0;
+    assign regDataIsFromMem=1'b0;
+    assign regDataIsFromPC4=1'b0;
+    assign aluOpCode=4'b0011;
+endmodule</code></pre>
+
+        <h3>控制信号功能</h3>
+        <ul>
+            <li><strong>pcSourceCode[1:0]</strong>：控制下一个PC值的来源
+                <ul>
+                    <li>00：顺序执行（PC+4）</li>
+                    <li>01：分支跳转</li>
+                    <li>10：JAL指令跳转</li>
+                    <li>11：JALR指令跳转</li>
+                </ul>
+            </li>
+            <li><strong>regWe</strong>：控制寄存器堆的写操作，1表示允许写回</li>
+            <li><strong>memWe</strong>：控制数据存储器的写操作，1表示执行存储指令</li>
+            <li><strong>aluOpCode[3:0]</strong>：控制ALU执行的具体运算操作</li>
+            <li><strong>bIsImm</strong>：选择ALU的b操作数来源，1表示使用立即数</li>
+            <li><strong>regDataIsFromMem</strong>：LOAD指令时选择从存储器读取的数据作为写回数据</li>
+            <li><strong>regDataIsFromPC4</strong>：JAL/JALR指令时使用PC+4作为写回数据</li>
+        </ul>
+
+        <h3>ALU操作码定义</h3>
+        <ul>
+            <li>0000：加法</li>
+            <li>0001：逻辑左移</li>
+            <li>0010：有符号小于比较</li>
+            <li>0011：无符号小于比较</li>
+            <li>0100：异或</li>
+            <li>0101：逻辑右移</li>
+            <li>0110：或</li>
+            <li>0111：与</li>
+            <li>1000：减法</li>
+            <li>1001：等于比较</li>
+            <li>1010：不等于比较</li>
+            <li>1011：有符号大于等于比较</li>
+            <li>1100：无符号大于等于比较</li>
+            <li>1101：算术右移</li>
+            <li>1110：JALR地址计算</li>
+            <li>1111：LUI指令</li>
+        </ul>
+
+        <div class="note">
+            <strong>注意</strong>：当前ControlUnit2.v的实现是简化版本，所有控制信号都设置为固定值。完整的控制单元需要根据不同的opcode、funct3和funct7组合生成对应的控制信号，以支持完整的RISC-V指令集。
+        </div>
+
+        <div class="section-divider" id="alu"></div>
+
+        <h2 id="alu">7. alu.v - 算术逻辑单元</h2>
+
+        <div class="module-description">
+            <p>alu.v实现了算术逻辑单元功能，执行各种算术运算、逻辑运算和比较操作。ALU是CPU中执行计算的核心部件，根据操作码执行相应的运算。</p>
+        </div>
+
+        <h3>端口定义</h3>
+        <table class="signal-table">
+            <tr>
+                <th>信号名称</th>
+                <th>方向</th>
+                <th>位宽</th>
+                <th>功能描述</th>
+            </tr>
+            <tr>
+                <td class="signal-name">dataA</td>
+                <td>input</td>
+                <td>32</td>
+                <td>操作数A（通常来自寄存器rdata1）</td>
+            </tr>
+            <tr>
+                <td class="signal-name">dataB</td>
+                <td>input</td>
+                <td>32</td>
+                <td>操作数B（来自寄存器rdata2或立即数）</td>
+            </tr>
+            <tr>
+                <td class="signal-name">opcode</td>
+                <td>input</td>
+                <td>4</td>
+                <td>ALU操作码</td>
+            </tr>
+            <tr>
+                <td class="signal-name">result</td>
+                <td>output</td>
+                <td>32</td>
+                <td>运算结果</td>
+            </tr>
+            <tr>
+                <td class="signal-name">con</td>
+                <td>output</td>
+                <td>1</td>
+                <td>条件判断结果（用于分支指令）</td>
+            </tr>
+        </table>
+
+        <h3>中间信号</h3>
+        <pre><code>wire signed [31:0] signed_dataA = dataA;
+wire signed [31:0] signed_dataB = dataB;
+wire [31:0] sum = dataA + dataB;
+wire [31:0] diff = dataA - dataB;</code></pre>
+
+        <h3>比较信号</h3>
+        <pre><code>wire lt_signed = (signed_dataA < signed_dataB);
+wire lt_unsigned = (dataA < dataB);
+wire eq = (dataA == dataB);
+wire ne = (dataA != dataB);
+wire ge_signed = (signed_dataA >= signed_dataB);
+wire ge_unsigned = (dataA >= dataB);</code></pre>
+
+        <h3>ALU操作实现</h3>
+        <pre><code>always @(*) begin
+    result = 0;
+    con = 0;
+
+    case(opcode)
+        // 加法
+        4'b0000: result = sum;
+
+        // 逻辑左移
+        4'b0001: result = dataA << dataB[4:0];
+
+        // 有符号小于比较
+        4'b0010: begin
+            result = {31'b0, lt_signed};
+            con = lt_signed;
+        end
+
+        // 无符号小于比较
+        4'b0011: begin
+            result = {31'b0, lt_unsigned};
+            con = lt_unsigned;
+        end
+
+        // 异或
+        4'b0100: result = dataA ^ dataB;
+
+        // 逻辑右移
+        4'b0101: result = dataA >> dataB[4:0];
+
+        // 或
+        4'b0110: result = dataA | dataB;
+
+        // 与
+        4'b0111: result = dataA & dataB;
+
+        // 减法
+        4'b1000: result = diff;
+
+        // 等于比较
+        4'b1001: begin
+            result = 0;
+            con = eq;
+        end
+
+        // 不等于比较
+        4'b1010: begin
+            result = 0;
+            con = ne;
+        end
+
+        // 有符号大于等于
+        4'b1011: begin
+            result = 0;
+            con = ge_signed;
+        end
+
+        // 无符号大于等于
+        4'b1100: begin
+            result = 0;
+            con = ge_unsigned;
+        end
+
+        // 算术右移
+        4'b1101: result = signed_dataA >>> dataB[4:0];
+
+        // JALR地址计算
+        4'b1110: result = sum & ~32'b1;
+
+        // LUI高位立即数加载
+        4'b1111: result = dataB << 12;
+
+        default: begin
+            result = 0;
+            con = 0;
+        end
+    endcase
+end</code></pre>
+
+        <h3>关键特性</h3>
+        <ul>
+            <li><strong>组合逻辑</strong>：使用always @(*)实现纯组合逻辑，输出立即响应输入变化</li>
+            <li><strong>有符号/无符号支持</strong>：通过signed类型支持有符号运算</li>
+            <li><strong>移位操作</strong>：支持逻辑左移、逻辑右移、算术右移</li>
+            <li><strong>比较操作</strong>：支持有符号和无符号的各种比较</li>
+            <li><strong>条件输出</strong>：con信号输出布尔比较结果，用于分支判断</li>
+            <li><strong>JALR支持</strong>：特殊处理JALR指令的地址计算（最低位清零）</li>
+            <li><strong>LUI支持</strong>：支持LUI指令的高位立即数加载</li>
+        </ul>
+
+        <h3>移位量限制</h3>
+        <p>所有移位操作使用dataB[4:0]，即只使用低5位作为移位量，符合RISC-V规范（移位量限制在0-31之间）。</p>
+
+        <div class="section-divider" id="rf"></div>
+
+        <h2 id="rf">8. RegFiles.v - 寄存器堆</h2>
+
+        <div class="module-description">
+            <p>RegFiles.v实现了RISC-V标准的32个通用寄存器堆，提供双端口读和单端口写功能。寄存器堆是CPU中用于临时存储数据和地址的重要组件。</p>
+        </div>
+
+        <h3>端口定义</h3>
+        <table class="signal-table">
+            <tr>
+                <th>信号名称</th>
+                <th>方向</th>
+                <th>位宽</th>
+                <th>功能描述</th>
+            </tr>
+            <tr>
+                <td class="signal-name">clk</td>
+                <td>input</td>
+                <td>1</td>
+                <td>时钟信号，上升沿触发写操作</td>
+            </tr>
+            <tr>
+                <td class="signal-name">raddr1</td>
+                <td>input</td>
+                <td>5</td>
+                <td>读端口1地址</td>
+            </tr>
+            <tr>
+                <td class="signal-name">rdata1</td>
+                <td>output</td>
+                <td>32</td>
+                <td>读端口1数据</td>
+            </tr>
+            <tr>
+                <td class="signal-name">raddr2</td>
+                <td>input</td>
+                <td>5</td>
+                <td>读端口2地址</td>
+            </tr>
+            <tr>
+                <td class="signal-name">rdata2</td>
+                <td>output</td>
+                <td>32</td>
+                <td>读端口2数据</td>
+            </tr>
+            <tr>
+                <td class="signal-name">waddr</td>
+                <td>input</td>
+                <td>5</td>
+                <td>写端口地址</td>
+            </tr>
+            <tr>
+                <td class="signal-name">wdata</td>
+                <td>input</td>
+                <td>32</td>
+                <td>写端口数据</td>
+            </tr>
+            <tr>
+                <td class="signal-name">we</td>
+                <td>input</td>
+                <td>1</td>
+                <td>写使能信号</td>
+            </tr>
+        </table>
+
+        <h3>功能实现</h3>
+        <pre><code>module RegFiles(
+    input clk,
+    input [4:0] raddr1,
+    output [31:0] rdata1,
+    input [4:0] raddr2,
+    output [31:0] rdata2,
+    input [4:0] waddr,
+    input we,
+    input [31:0] wdata
+);
+    reg[31:0] regs[1:31];
+    integer i;
+    initial
+        for(i=1;i<32;i=i+1) regs[i]=32'b0;
+
+    assign rdata1=(raddr1==5'b00000)?32'b0:regs[raddr1];
+    assign rdata2=(raddr2==5'b00000)?32'b0:regs[raddr2];
+
+    always @(posedge clk)
+        if(we)
+            if(waddr!=4'b00000)
+                regs[waddr]<=wdata;
+endmodule</code></pre>
+
+        <h3>关键特性</h3>
+        <ul>
+            <li><strong>32个寄存器</strong>：定义了regs[1:31]，共31个通用寄存器（x1-x31）</li>
+            <li><strong>零寄存器x0</strong>：通过硬件逻辑实现，读取地址0时返回0，写入地址0时忽略</li>
+            <li><strong>双端口读</strong>：可以同时读取两个不同的寄存器（raddr1和raddr2）</li>
+            <li><strong>异步读取</strong>：使用assign实现组合逻辑读取，地址变化时数据立即输出</li>
+            <li><strong>同步写入</strong>：使用always @(posedge clk)实现同步写入，时钟沿触发</li>
+            <li><strong>写使能控制</strong>：只有we信号为1时才执行写操作</li>
+            <li><strong>零寄存器保护</strong>：写入地址0时自动忽略，保持x0恒为0</li>
+        </ul>
+
+        <h3>初始化</h3>
+        <p>在initial块中，使用循环将所有寄存器初始化为0。这在仿真时有用，实际硬件中复位逻辑也需要确保寄存器初始状态。</p>
+
+        <h3>读操作时序</h3>
+        <ul>
+            <li>读操作是异步的，不依赖时钟</li>
+            <li>读取地址0时直接返回0（零寄存器）</li>
+            <li>读取非零地址时返回对应寄存器的当前值</li>
+        </ul>
+
+        <h3>写操作时序</h3>
+        <ul>
+            <li>写操作是同步的，在时钟上升沿执行</li>
+            <li>只有在we=1时才执行写操作</li>
+            <li>写入地址0时自动忽略（保护零寄存器）</li>
+            <li>使用非阻塞赋值<=，避免仿真竞争</li>
+        </ul>
+
+        <div class="note">
+            <strong>注意</strong>：寄存器堆的写地址判断使用waddr!=4'b00000，这里应该是5'b00000（5位全零），当前实现存在一个小错误，建议修正为waddr!=5'b00000。
+        </div>
+
+        <div class="section-divider" id="ram"></div>
+
+        <h2 id="ram">9. ram.v - 数据存储器</h2>
+
+        <div class="module-description">
+            <p>ram.v实现了数据存储器功能，用于存储程序运行时的数据。这是一个可读写存储器，支持数据的加载和存储操作，实现LOAD和STORE指令的数据访问。</p>
+        </div>
+
+        <h3>端口定义</h3>
+        <table class="signal-table">
+            <tr>
+                <th>信号名称</th>
+                <th>方向</th>
+                <th>位宽</th>
+                <th>功能描述</th>
+            </tr>
+            <tr>
+                <td class="signal-name">clk</td>
+                <td>input</td>
+                <td>1</td>
+                <td>时钟信号，写操作同步</td>
+            </tr>
+            <tr>
+                <td class="signal-name">we</td>
+                <td>input</td>
+                <td>1</td>
+                <td>写使能信号（1=写入，0=读取）</td>
+            </tr>
+            <tr>
+                <td class="signal-name">addr</td>
+                <td>input</td>
+                <td>8</td>
+                <td>8位地址（256个32位存储单元）</td>
+            </tr>
+            <tr>
+                <td class="signal-name">data_in</td>
+                <td>input</td>
+                <td>32</td>
+                <td>32位输入数据（写操作）</td>
+            </tr>
+            <tr>
+                <td class="signal-name">data_out</td>
+                <td>output</td>
+                <td>32</td>
+                <td>32位输出数据（读操作）</td>
+            </tr>
+        </table>
+
+        <h3>功能实现</h3>
+        <pre><code>module ram(
+    input clk,
+    input we,
+    input [7:0] addr,
+    input [31:0] data_in,
+    output [31:0] data_out
+);
+    reg [31:0] memory [0:255];
+
+    // 同步写入
+    always @(posedge clk) begin
+        if (we) begin
+            memory[addr] <= data_in;
+        end
+    end
+
+    // 异步读取
+    assign data_out = memory[addr];
+endmodule</code></pre>
+
+        <h3>关键特性</h3>
+        <ul>
+            <li><strong>存储容量</strong>：256个32位存储单元（1KB数据存储空间）</li>
+            <li><strong>地址宽度</strong>：8位地址线，可寻址256个位置</li>
+            <li><strong>同步写入</strong>：写操作在时钟上升沿执行，使用非阻塞赋值</li>
+            <li><strong>异步读取</strong>：读操作使用assign实现，地址变化时数据立即输出</li>
+            <li><strong>写使能控制</strong>：只有在we=1时才执行写操作</li>
+            <li><strong>读操作不受we影响</strong>：无论we为何值，都可以进行读操作</li>
+        </ul>
+
+        <h3>存储器初始化</h3>
+        <p>当前RAM实现没有初始化逻辑，所有存储单元的初始值未定义。在实际应用中：</p>
+        <ul>
+            <li>仿真时可以使用$readmemh从文件加载初始数据</li>
+            <li>硬件中上电后存储器内容是随机的，需要通过程序初始化</li>
+        </ul>
+
+        <h3>读写时序</h3>
+        <ul>
+            <li><strong>写操作</strong>：在时钟上升沿，如果we=1，将data_in写入memory[addr]</li>
+            <li><strong>读操作</strong>：组合逻辑，data_out始终输出memory[addr]的当前值</li>
+            <li><strong>同时读写</strong>：可以同时进行读写操作，读操作会输出新写入的数据（或旧数据，取决于具体实现）</li>
+        </ul>
+
+        <h3>与LOAD/STORE指令的配合</h3>
+        <ul>
+            <li><strong>LOAD指令</strong>：计算地址 → 设置we=0 → 读取data_out → 写回寄存器</li>
+            <li><strong>STORE指令</strong>：计算地址 → 设置we=1 → 写入data_in</li>
+        </ul>
+
+        <div class="note">
+            <strong>注意</strong>：当前RAM模块未在top.v中实例化和连接。要支持完整的LOAD和STORE指令功能，需要在top.v中实例化ram模块，并根据控制单元的memWe信号连接相应的数据通路。
+        </div>
+
+        <div class="section-divider"></div>
+
+        <h2>总结</h2>
+        <p>本RISC-V单周期CPU项目实现了基本的处理器架构，包含完整的数据通路和控制通路。各个模块协同工作，实现了指令的取指、译码、执行和访存功能。</p>
+
+        <h3>主要特点</h3>
+        <ul>
+            <li><strong>模块化设计</strong>：每个功能单元独立实现，便于理解和修改</li>
+            <li><strong>单周期执行</strong>：每条指令在一个时钟周期内完成</li>
+            <li><strong>标准RISC-V格式</strong>：遵循RISC-V指令集规范</li>
+            <li><strong>可扩展性</strong>：支持添加新的指令类型和功能</li>
+        </ul>
+
+        <h3>待完善功能</h3>
+        <ul>
+            <li>CPU.v中的PC更新逻辑需要支持分支和跳转指令</li>
+            <li>控制单元需要根据不同指令生成正确的控制信号</li>
+            <li>ID.v需要完善U型和J型指令的立即数提取</li>
+            <li>top.v需要集成RAM模块以支持数据存储指令</li>
+            <li>RegFiles.v中的零寄存器判断逻辑需要修正</li>
+        </ul>
+
+        <h3>数据通路概述</h3>
+        <ol>
+            <li><strong>取指阶段</strong>：PC → ROM → 指令寄存器</li>
+            <li><strong>译码阶段</strong>：ID模块解析指令字段，控制单元生成控制信号</li>
+            <li><strong>执行阶段</strong>：寄存器堆读取数据 → ALU执行运算</li>
+            <li><strong>访存阶段</strong>：根据需要访问RAM（当前未连接）</li>
+            <li><strong>写回阶段</strong>：ALU结果或RAM数据写回寄存器堆</li>
+        </ol>
+
+    </div>
+</body>
+</html>

@@ -1,0 +1,109 @@
+@startuml
+' RISC-V 单周期CPU架构图
+
+skinparam componentStyle rectangle
+skinparam defaultTextAlignment center
+skinparam shadowing false
+
+title RISC-V RV32I 单周期CPU架构图
+
+' 定义主要组件
+package "CPU Top Level" {
+    [CLK\n(RAM时钟)] as clk
+    [RST\n(复位信号)] as rst
+    
+    package "CPU Core" {
+        [Program Counter\n(PC)] as pc
+        [Instruction Memory\n(ROM)] as rom
+        [Instruction Decoder\n(ID)] as id
+        [Control Unit] as cu
+        [Register File\n(Regs 1 to 31)] as regfile
+        [ALU] as alu
+        [Data Memory\n(RAM)] as ram
+        
+        ' 连接组件
+        pc --> rom : addr\n(PC地址)
+        rom --> id : ins\n(32位指令)
+        id --> cu : opcode,\nfunct3,\nfunct7
+        id --> regfile : rs1, rs2\nrd
+        cu --> pc : pcsource
+        cu --> regfile : rwe,\nispc4,\nisfm
+        cu --> alu : aluop
+        cu --> ram : mem_en
+        regfile --> alu : rdata1,\nrdata2
+        alu --> regfile : f\n(ALU结果)
+        ram --> regfile : mem_data
+        alu --> ram : f\n(内存地址)
+        regfile --> ram : rdata2\n(写入数据)
+        alu --> pc : nextaddr
+    }
+    
+    ' 外部存储连接
+    [Instruction ROM\n(外部)] as ext_rom
+    [Data RAM\n(外部)] as ext_ram
+    
+    rom ||--|| ext_rom : addr/data
+    ram ||--|| ext_ram : addr/data
+}
+
+' 添加注释
+note right of pc
+    功能: 存储当前指令地址
+    复位值: 0x00400000
+    更新: 每个时钟周期更新为下一地址
+end note
+
+note right of rom
+    功能: 存储指令
+    地址位: addr[9:2] (256字=1KB)
+    输出: 32位指令数据
+end note
+
+note right of id
+    功能: 解析指令字段
+    输出: rs1, rs2, rd
+    opcode, funct3, funct7
+    imm12, imm20
+end note
+
+note left of cu
+    功能: 控制信号生成
+    输入: opcode, funct3, funct7
+    输出: 控制信号
+    - pcsource (PC来源)
+    - rwe (寄存器写使能)
+    - mem_en (内存写使能)
+    - aluop (ALU操作)
+    - isimm (立即数选择)
+    - isimm20 (20位立即数)
+    - isfm (来自内存)
+    - ispc4 (来自PC+4)
+end note
+
+note right of regfile
+    功能: 32个32位通用寄存器
+    结构: regs[1:31] (x0硬连线为0)
+    支持: 双端口读取，单端口写入
+    读取: raddr1->rdata1, raddr2->rdata2
+    写入: waddr, wdata (we使能时)
+end note
+
+note right of alu
+    功能: 执行算术/逻辑运算
+    操作数: dataA, dataB
+    操作码: opcode
+    输出: result, con(条件标志)
+    支持操作: ADD, SUB, AND, OR,
+    XOR, SLL, SRL, SRA,
+    EQ, SLT, ULT, LUI, JAL
+end note
+
+note bottom of ram
+    功能: 数据存储
+    地址位: addr[9:2] (256字=1KB)
+    输入: data_in (写入数据)
+    输出: data_out (读取数据)
+    控制: we (写使能)
+end note
+
+@enduml

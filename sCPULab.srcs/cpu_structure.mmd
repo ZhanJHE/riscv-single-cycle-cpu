@@ -1,0 +1,104 @@
+```mermaid
+graph TD
+    subgraph "RISC-V 单周期CPU"
+        direction TB
+        
+        subgraph "核心组件"
+            PC[("PC\n(程序计数器)")]
+            IMEM[("Instruction Memory\n(指令存储器)")]
+            ID[("Instruction Decoder\n(指令译码器)")]
+            CU[("Control Unit\n(控制单元)")]
+            RF[("Register File\n(寄存器文件)")]
+            ALU[("ALU\n(算术逻辑单元)")]
+            DMEM[("Data Memory\n(数据存储器)")]
+        end
+
+        subgraph "控制信号"
+            PCSrcCode["PCSrcCode[1:0]\nPC来源选择\n00: PC+4\n01: 分支\n10: JAL\n11: JALR"]
+            RegWe["RegWe\n寄存器写使能"]
+            MemWe["MemWe\n内存写使能"]
+            ALUOp["ALUOp[3:0]\nALU操作码\n0000: ADD\n0001: SUB\n0010: AND\n0011: OR\n0100: XOR\n0101: SLL\n0110: SRL\n0111: SRA\n1000: EQ\n1001: SLT\n1010: ULT\n1011: LUI\n1100: JAL"]
+            BIsImm["BIsImm\nALU B输入选择\n1: 立即数\n0: 寄存器"]
+            BIs20bImm["BIs20bImm\n立即数选择\n1: 20位\n0: 12位"]
+            RegFromMem["RegFromMem\n写回数据选择\n1: 内存\n0: ALU"]
+            RegFromPC4["RegFromPC4\n写回数据选择\n1: PC+4\n0: 其他"]
+        end
+
+        subgraph "数据通路"
+            PCNext["nextaddr\n(下一条指令地址)"]
+            PCOut["curraddr\n(当前PC值)"]
+            InsData["insData\n(32位指令)"]
+            RS1["rs1[4:0]\n(源寄存器1地址)"]
+            RS2["rs2[4:0]\n(源寄存器2地址)"]
+            RD["rd[4:0]\n(目标寄存器地址)"]
+            RData1["rdata1\n(寄存器1数据)"]
+            RData2["rdata2\n(寄存器2数据)"]
+            WData["rwdata\n(写回数据)"]
+            ALUA["a\n(ALU输入A)"]
+            ALUB["b\n(ALU输入B)"]
+            ALURes["f\n(ALU结果)"]
+            Imm12["imm12[11:0]\n(12位立即数)"]
+            Imm20["imm20[19:0]\n(20位立即数)"]
+            Imm12Exp["imm12_exp\n(扩展后的12位立即数)"]
+            Imm20Exp["imm20_exp\n(扩展后的20位立即数)"]
+            Opcode["opcode[6:0]\n(操作码)"]
+            Funct3["func[2:0]\n(funct3字段)"]
+            Funct7["dis\n(funct7第30位)"]
+            Cond["con\n(条件判断结果)"]
+            MemAddr["mem_addr\n(内存地址)"]
+            MemWData["mem_w_data\n(内存写入数据)"]
+            MemData["mem_data\n(内存读取数据)"]
+        end
+    end
+
+    %% 数据通路连接
+    PC -- PCOut --> IMEM
+    IMEM -- InsData --> ID
+    ID -- Opcode/Funct --> CU
+    ID -- RS1/RS2/RD --> RF
+    ID -- Imm12/Imm20 --> CU
+    CU -- PCSrcCode --> MUX_PC{MUX}
+    CU -- RegWe --> RF
+    CU -- MemWe --> DMEM
+    CU -- ALUOp --> ALU
+    CU -- BIsImm/BIs20bImm --> MUX_ALUB{MUX}
+    CU -- RegFromMem/RegFromPC4 --> MUX_WB{MUX}
+    RF -- RData1 --> ALU
+    RF -- RData2 --> MUX_ALUB
+    RF -- RData2 --> DMEM
+    ALU -- ALURes --> MUX_WB
+    ALU -- Cond --> CU
+    ALU -- ALURes --> DMEM
+    DMEM -- MemData --> MUX_WB
+    MUX_WB -- WData --> RF
+    MUX_ALUB -- ALUB --> ALU
+    ID -- RS1 --> ALU
+    MUX_PC -- PCNext --> PC
+
+    %% 立即数扩展连接
+    ID -- Imm12 --> ImmExt1[(符号扩展)]
+    ImmExt1 -- Imm12Exp --> MUX_ALUB
+    ID -- Imm20 --> ImmExt2[(符号扩展)]
+    ImmExt2 -- Imm20Exp --> MUX_ALUB
+
+    %% 外部连接
+    PCOut -- "指令地址" --> ExternalROM[(外部指令ROM)]
+    InsData -- "指令数据" --> ExternalROM
+    MemAddr -- "内存地址" --> ExternalRAM[(外部数据RAM)]
+    MemWData -- "写入数据" --> ExternalRAM
+    MemData -- "读取数据" --> ExternalRAM
+
+    classDef module fill:#e1f5fe,stroke:#64b5f6,stroke-width:2px;
+    classDef datapath fill:#f3e5f5,stroke:#9c27b0,stroke-width:1px;
+    classDef control fill:#fff3e0,stroke:#ff9800,stroke-width:1px;
+    classDef external fill:#e8f5e8,stroke:#4caf50,stroke-width:2px;
+    classDef mux fill:#ffebee,stroke:#f44336,stroke-width:1px,shape:circle;
+    
+    class PC,IMEM,ID,CU,RF,ALU,DMEM module;
+    class PCSrcCode,RegWe,MemWe,ALUOp,BIsImm,BIs20bImm,RegFromMem,RegFromPC4 control;
+    class PCNext,PCOut,InsData,RS1,RS2,RD,RData1,RData2,WData,ALUA,ALUB,ALURes,Imm12,Imm20,Imm12Exp,Imm20Exp,Opcode,Funct3,Funct7,Cond,MemAddr,MemWData,MemData datapath;
+    class ExternalROM,ExternalRAM external;
+    class MUX_PC,MUX_ALUB,MUX_WB mux;
+
+    linkStyle default stroke:#000,fill:none,stroke-width:1.5px;
+```

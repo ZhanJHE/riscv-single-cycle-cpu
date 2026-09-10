@@ -1,0 +1,86 @@
+```mermaid
+graph TD
+    subgraph "RISC-V RV32I 单周期CPU"
+        direction TB
+        
+        CLK[(时钟信号)] --> PC
+        RST[(复位信号)] --> PC
+        
+        subgraph "核心数据通路组件"
+            PC[("PC\n程序计数器\n- 当前地址: curraddr\n- 下一地址: nextaddr")]
+            
+            IMEM[("Instruction Memory\n指令存储器\n- 输入: addr (PC)\n- 输出: insData (32位指令)")]
+            
+            ID[("Instruction Decoder\n指令译码器\n- 输入: ins (32位指令)\n- 输出:\n  · rs1, rs2 (源寄存器地址)\n  · rd (目标寄存器地址)\n  · opcode, funct3, funct7\n  · imm12, imm20 (立即数)")]
+            
+            CU[("Control Unit\n控制单元\n- 输入:\n  · opcode, funct3, funct7\n  · condition (ALU比较结果)\n- 输出控制信号:\n  · pcSourceCode[1:0]\n  · regWe, memWe\n  · aluOpCode[3:0]\n  · bIsImm, bIs20bImm\n  · regDataIsFromMem\n  · regDataIsFromPC4")]
+            
+            RF[("Register File\n寄存器文件\n- 32个32位寄存器\n- 读端口:\n  · raddr1 -> rdata1\n  · raddr2 -> rdata2\n- 写端口:\n  · waddr, wdata, we")]
+            
+            ALU[("ALU\n算术逻辑单元\n- 输入:\n  · dataA (通常来自rdata1)\n  · dataB (来自MUX)\n  · opcode (aluOpCode)\n- 输出:\n  · result (f)\n  · con (条件比较结果)")]
+            
+            DMEM[("Data Memory\n数据存储器\n- 输入:\n  · addr (来自ALU结果)\n  · data_in (来自rdata2)\n  · we (memWe)\n- 输出:\n  · data_out (mem_data)")]
+        end
+        
+        subgraph "多路选择器"
+            MUX_PC_SRC[("MUX\nPC来源选择\n依据: pcSourceCode\n- 00: PC+4 (顺序执行)\n- 01: 分支目标 (条件跳转)\n- 10: JAL目标\n- 11: JALR目标")]
+            
+            MUX_ALU_B[("MUX\nALU输入B选择\n依据: {bIsImm, bIs20bImm}\n- 00: rdata2 (寄存器)\n- 10: imm12_exp (12位立即数)\n- 01: imm20_exp (20位立即数)")]
+            
+            MUX_WB[("MUX\n写回数据选择\n依据: {regDataIsFromPC4, regDataIsFromMem}\n- 00: ALU结果\n- 01: 内存数据\n- 10: PC+4 (JAL指令)")]
+        end
+        
+        subgraph "立即数处理"
+            EXT_IMM12[("Sign Extend\n12位立即数扩展\n- 输入: imm12\n- 输出: imm12_exp (32位)")]
+            
+            EXT_IMM20[("Sign Extend\n20位立即数扩展\n- 输入: imm20\n- 输出: imm20_exp (32位)")]
+        end
+    end
+    
+    %% 数据流向连接
+    PC -- "addr (curraddr)" --> IMEM
+    IMEM -- "insData" --> ID
+    ID -- "opcode, funct3, funct7\nimm12, imm20\nrs1, rs2, rd" --> CU
+    ID -- "rs1, rs2" --> RF
+    ID -- "imm12" --> EXT_IMM12
+    ID -- "imm20" --> EXT_IMM20
+    EXT_IMM12 -- "imm12_exp" --> MUX_ALU_B
+    EXT_IMM20 -- "imm20_exp" --> MUX_ALU_B
+    CU -- "pcSourceCode" --> MUX_PC_SRC
+    CU -- "regWe" --> RF
+    CU -- "memWe" --> DMEM
+    CU -- "aluOpCode" --> ALU
+    CU -- "bIsImm, bIs20bImm" --> MUX_ALU_B
+    CU -- "regDataIsFromMem\nregDataIsFromPC4" --> MUX_WB
+    RF -- "rdata1" --> ALU
+    RF -- "rdata2" --> MUX_ALU_B
+    RF -- "rdata2" --> DMEM
+    MUX_ALU_B -- "b (ALU输入B)" --> ALU
+    ALU -- "f (ALU结果)" --> MUX_WB
+    ALU -- "f (地址)" --> DMEM
+    ALU -- "con (条件)" --> CU
+    ALU -- "f (跳转地址)" --> MUX_PC_SRC
+    DMEM -- "mem_data" --> MUX_WB
+    MUX_WB -- "rwdata (写回数据)" --> RF
+    MUX_PC_SRC -- "nextaddr" --> PC
+    
+    %% 外部存储连接
+    IMEM -.->|"外部指令ROM\n(只读)" .- EXTERN_ROM[(外部存储)]
+    DMEM -.->|"外部数据RAM\n(读写)" .- EXTERN_RAM[(外部存储)]
+    
+    classDef core fill:#e3f2fd,stroke:#1e88e5,stroke-width:2px;
+    classDef control fill:#fff3e0,stroke:#f57c00,stroke-width:2px;
+    classDef mux fill:#fce4ec,stroke:#e91e63,stroke-width:2px;
+    classDef extend fill:#f1f8e9,stroke:#7cb342,stroke-width:2px;
+    classDef memory fill:#fbe9e7,stroke:#ff7043,stroke-width:2px;
+    classDef external fill:#fafafa,stroke:#9e9e9e,stroke-width:1px,stroke-dasharray: 5 5;
+    
+    class PC,RF,ALU core;
+    class CU control;
+    class MUX_PC_SRC,MUX_ALU_B,MUX_WB mux;
+    class EXT_IMM12,EXT_IMM20 extend;
+    class IMEM,DMEM memory;
+    class EXTERN_ROM,EXTERN_RAM external;
+    
+    linkStyle default stroke:#333,stroke-width:1.5px,fill:none;
+```

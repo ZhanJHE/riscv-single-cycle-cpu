@@ -1,0 +1,13 @@
+# 统一换行策略：文本文件统一以 LF 入库，检出时按原样还原
+* text=auto
+
+# 源码与文档
+*.v    text
+*.md   text
+*.txt  text
+*.html text
+*.xpr  text
+*.xdc  text
+*.tcl  text
+*.gitignore text
+*.gitattributes text
