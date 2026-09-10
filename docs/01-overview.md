@@ -62,6 +62,7 @@ riscv-single-cycle-cpu/
 │   ├── pc.txt                     # 期望 PC 序列
 │   ├── x1.txt / x2.txt / x3.txt   # 期望 x1/x2/x3 序列（四个文件均已核验正确）
 └── sCPULab.srcs/
+    ├── cpu_*.mmd, cpu_structure.puml  # 架构图源（mermaid / PlantUML）
     ├── sources_1/                 # 设计源文件
     │   ├── new/
     │   │   ├── top.v              # 仿真顶层：CPU + ROM + RAM
